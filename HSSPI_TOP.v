@@ -51,6 +51,7 @@ reg r_res_valid;
 reg [7:0] r_address_buffer;
 reg [7:0] r_data_buffer;
 reg r_we, r_oe;
+reg int_r = 0, ins_r = 0;
 
 reg [3:0] state_curr, state_next;
 
@@ -99,11 +100,26 @@ begin
 
 end
 
-always@(state_curr)
+always@(posedge w_RX_DV)
 begin
+	
+	if(w_RX_DV)int_r = 1'b1;
+	else if(!w_RX_DV) int_r = 1'b0;
+
+end
+
+always@(posedge w_puf_done)
+begin
+	r_puf_done = 1;
+end
+
+always@(state_curr or int_r)
+begin
+ins_r = int_r;
 		case(state_curr)
 			IDLE : 
 			begin
+			
 				r_TX_byte = 0;
 				//r_RX_byte <= 0;
 				r_TX_DV = 0;
@@ -121,21 +137,29 @@ begin
 				r_oe = 0;
 				
 				state_next = CHALL;
+				$display("Hello Bro");
 			
 			end
 			
 			CHALL :
 			begin
-			
+				if(ins_r == 0)
+				begin
 				r_TX_byte = 8'h01;
 				#2 r_TX_DV = 1;
 				#4 r_TX_DV = 0;
+				$display("Hello");
+				end
 				
-				if(r_RX_DV == 1)
+				if(ins_r)
 				begin
 					r_challenge = w_RX_byte;
-					r_puf_start = w_RX_DV;
+					r_puf_start = 1;
 					state_next = VALID;
+					
+					$display("World");
+					ins_r = 0;
+
 				end
 				else
 					state_next = CHALL;
@@ -143,9 +167,9 @@ begin
 			
 			VALID :
 			begin
-				if(w_puf_done)
+				if(r_puf_done)
 				begin
-					r_val_start = w_puf_done;
+					r_val_start = 1;
 				end
 				
 				if(r_res_valid)
